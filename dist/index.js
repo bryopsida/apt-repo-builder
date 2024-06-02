@@ -2722,11 +2722,44 @@ exports["default"] = _default;
 
 /***/ }),
 
+/***/ 764:
+/***/ ((module) => {
+
+async function updateAptRepo(opts) {}
+
+async function getExistingReleases(opts) {}
+
+module.exports = {
+  updateAptRepo,
+  getExistingReleases
+}
+
+
+/***/ }),
+
+/***/ 486:
+/***/ ((module) => {
+
+async function downloadDeb(opts) {}
+
+async function signDeb(opts) {}
+
+module.exports = {
+  downloadDeb,
+  signDeb
+}
+
+
+/***/ }),
+
 /***/ 713:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const core = __nccwpck_require__(186)
-const { wait } = __nccwpck_require__(312)
+const { wait } = __nccwpck_require__(653)
+const { getExistingReleases, updateAptRepo } = __nccwpck_require__(764)
+const { crawlReposAndGetReleases } = __nccwpck_require__(77)
+const { downloadDeb, signDeb } = __nccwpck_require__(486)
 
 /**
  * The main function for the action.
@@ -2734,18 +2767,44 @@ const { wait } = __nccwpck_require__(312)
  */
 async function run() {
   try {
-    const ms = core.getInput('milliseconds', { required: true })
+    const repositoriesRaw = core.getInput('repositories', { required: true })
+    const repoArray = repositoriesRaw.split(',')
+    const signingKey = core.getInput('signing_key', { required: false })
+    const signinKeyPath = core.getInput('signing_key_path', {
+      required: signingKey == null
+    })
+    const signingKeyPassword = core.getInput('signing_key_password', {
+      required: true
+    })
+    const outputFolder = core.getInput('output_folder', {
+      required: true
+    })
+    const signing_key_id = core.getInput('signing_key_id', {
+      required: false
+    })
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+    const existingReleases = await getExistingReleases({
+      aptRepoPath: outputFolder
+    })
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    const newReleases = await crawlReposAndGetReleases({
+      existingReleases,
+      repositories: repoArray
+    })
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    for (const deb of newReleases) {
+      const localPath = await downloadDeb({
+        deb,
+        aptRepoPath: outputFolder
+      })
+      await signDeb({
+        path: localPath
+      })
+    }
+    await updateAptRepo({
+      newReleases,
+      aptRepoPath: outputFolder
+    })
   } catch (error) {
     // Fail the workflow run if an error occurs
     core.setFailed(error.message)
@@ -2759,26 +2818,22 @@ module.exports = {
 
 /***/ }),
 
-/***/ 312:
+/***/ 77:
 /***/ ((module) => {
 
-/**
- * Wait for a number of milliseconds.
- *
- * @param {number} milliseconds The number of milliseconds to wait.
- * @returns {Promise<string>} Resolves with 'done!' after the wait is over.
- */
-async function wait(milliseconds) {
-  return new Promise(resolve => {
-    if (isNaN(milliseconds)) {
-      throw new Error('milliseconds not a number')
-    }
+async function crawlReposAndGetReleases(opts) {}
 
-    setTimeout(() => resolve('done!'), milliseconds)
-  })
+module.exports = {
+  crawlReposAndGetReleases
 }
 
-module.exports = { wait }
+
+/***/ }),
+
+/***/ 653:
+/***/ ((module) => {
+
+module.exports = eval("require")("./wait");
 
 
 /***/ }),

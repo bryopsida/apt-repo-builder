@@ -1,19 +1,30 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'APT Repo Builder'
+description:
+  'Takes a list of repos, crawls the release objects and extracts .deb files and
+  creates a compatible folder for an apt repo at the provided output path'
+author: 'bryopsida'
 
-# Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
+  repositories:
+    description:
+      'A csv list of github repositories that have releases with .deb files'
     required: true
-    default: '1000'
-
-# Define your outputs here.
-outputs:
-  time:
-    description: 'Your output description here'
-
+  signing_key:
+    description: 'GPG key in ascii armor format'
+    required: false
+  signing_key_path:
+    description:
+      'Path to the signing key, either this or signing_key must be set'
+    required: false
+  signing_key_id:
+    description: 'Optionally specify the key id to use for signing'
+    required: false
+  signing_key_password:
+    description: 'Password to unlock the signing key'
+    required: true
+  output_folder:
+    description: 'Path to where the apt repo folder output will be created'
+    required: true
 runs:
   using: node20
   main: dist/index.js

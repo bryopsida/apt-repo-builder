@@ -1,5 +1,8 @@
 const core = require('@actions/core')
 const { wait } = require('./wait')
+const { getExistingReleases, updateAptRepo } = require('./apt-repo-manager')
+const { crawlReposAndGetReleases } = require('./release-crawler')
+const { downloadDeb, signDeb } = require('./deb-manager')
 
 /**
  * The main function for the action.
@@ -7,18 +10,44 @@ const { wait } = require('./wait')
  */
 async function run() {
   try {
-    const ms = core.getInput('milliseconds', { required: true })
+    const repositoriesRaw = core.getInput('repositories', { required: true })
+    const repoArray = repositoriesRaw.split(',')
+    const signingKey = core.getInput('signing_key', { required: false })
+    const signinKeyPath = core.getInput('signing_key_path', {
+      required: signingKey == null
+    })
+    const signingKeyPassword = core.getInput('signing_key_password', {
+      required: true
+    })
+    const outputFolder = core.getInput('output_folder', {
+      required: true
+    })
+    const signing_key_id = core.getInput('signing_key_id', {
+      required: false
+    })
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+    const existingReleases = await getExistingReleases({
+      aptRepoPath: outputFolder
+    })
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    const newReleases = await crawlReposAndGetReleases({
+      existingReleases,
+      repositories: repoArray
+    })
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    for (const deb of newReleases) {
+      const localPath = await downloadDeb({
+        deb,
+        aptRepoPath: outputFolder
+      })
+      await signDeb({
+        path: localPath
+      })
+    }
+    await updateAptRepo({
+      newReleases,
+      aptRepoPath: outputFolder
+    })
   } catch (error) {
     // Fail the workflow run if an error occurs
     core.setFailed(error.message)
